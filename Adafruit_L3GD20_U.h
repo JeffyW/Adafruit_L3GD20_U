@@ -90,6 +90,7 @@ class Adafruit_L3GD20_Unified : public Adafruit_Sensor
 
     bool begin           ( gyroRange_t rng = GYRO_RANGE_250DPS );
     void enableAutoRange ( bool enabled );
+    void enableDRDYInterrupt ( bool enabled );
     bool getEvent        ( sensors_event_t* );
     void getSensor       ( sensor_t* );
 

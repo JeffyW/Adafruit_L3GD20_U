@@ -212,6 +212,22 @@ void Adafruit_L3GD20_Unified::enableAutoRange(bool enabled)
 }
 
 /**************************************************************************/
+/*!
+    @brief  Enables (or disables) the Data Ready interrupt
+*/
+/**************************************************************************/
+void Adafruit_L3GD20_Unified::enableDRDYInterrupt(bool enabled)
+{
+  byte existing = read8(GYRO_REGISTER_CTRL_REG3);
+
+  if (enabled) {
+    write8(GYRO_REGISTER_CTRL_REG3, existing |= 1<<3);
+  } else {
+    write8(GYRO_REGISTER_CTRL_REG3, existing &= ~(1<<3));
+  }
+}
+
+/**************************************************************************/
 /*! 
     @brief  Gets the most recent sensor event
 */
