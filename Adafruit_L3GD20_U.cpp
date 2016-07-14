@@ -153,8 +153,8 @@ bool Adafruit_L3GD20_Unified::begin(gyroRange_t rng, TwoWire *theWire)
      0  XEN       X-axis enable (0 = disabled, 1 = enabled)           1 */
 
   /* Reset then switch to normal mode and enable all three channels */
-  write8(GYRO_REGISTER_CTRL_REG1, 0x00);
-  write8(GYRO_REGISTER_CTRL_REG1, 0x0F);
+  write8(GYRO_REGISTER_CTRL_REG1, GYRO_CTRL1_Disabled);
+  write8(GYRO_REGISTER_CTRL_REG1, GYRO_CTRL1_3AxisEnabled);
   /* ------------------------------------------------------------------ */
 
   /* Set CTRL_REG2 (0x21)
@@ -197,18 +197,7 @@ bool Adafruit_L3GD20_Unified::begin(gyroRange_t rng, TwoWire *theWire)
      0  SIM       SPI Mode (0=4-wire, 1=3-wire)                       0 */
 
   /* Adjust resolution if requested */
-  switch(_range)
-  {
-    case GYRO_RANGE_250DPS:
-      write8(GYRO_REGISTER_CTRL_REG4, 0x00);
-      break;
-    case GYRO_RANGE_500DPS:
-      write8(GYRO_REGISTER_CTRL_REG4, 0x10);
-      break;
-    case GYRO_RANGE_2000DPS:
-      write8(GYRO_REGISTER_CTRL_REG4, 0x20);
-      break;
-  }
+  write8(GYRO_REGISTER_CTRL_REG4, _range);
   /* ------------------------------------------------------------------ */
 
   /* Set CTRL_REG5 (0x24)
@@ -250,8 +239,10 @@ void Adafruit_L3GD20_Unified::enableDRDYInterrupt(bool enabled)
 
   if (enabled) {
     write8(GYRO_REGISTER_CTRL_REG3, existing |= 1<<3);
+    //write8(GYRO_REGISTER_CTRL_REG3, existing |= GYRO_CTRL3_INT2_DRDY);
   } else {
     write8(GYRO_REGISTER_CTRL_REG3, existing &= ~(1<<3));
+    //write8(GYRO_REGISTER_CTRL_REG3, existing &= ~(GYRO_CTRL3_INT2_DRDY));
   }
 }
 
@@ -264,8 +255,8 @@ void Adafruit_L3GD20_Unified::setOutputDataRate(gyroDataRate odr)
 {
   byte existing = read8(GYRO_REGISTER_CTRL_REG1);
 
-  write8(GYRO_REGISTER_CTRL_REG1, existing &= ~(3<<6));
-  write8(GYRO_REGISTER_CTRL_REG1, existing |= odr<<6);
+  write8(GYRO_REGISTER_CTRL_REG1, existing &= ~(GYRO_CTRL1_DR_800Hz));
+  write8(GYRO_REGISTER_CTRL_REG1, existing |= odr);
 }
 
 /**************************************************************************/
@@ -281,8 +272,6 @@ void Adafruit_L3GD20_Unified::setOutputDataRate(gyroDataRate odr)
 /**************************************************************************/
 bool Adafruit_L3GD20_Unified::getEvent(sensors_event_t* event)
 {
-  bool readingValid = false;
-
   /* Clear the event */
   memset(event, 0, sizeof(sensors_event_t));
 
@@ -295,30 +284,47 @@ bool Adafruit_L3GD20_Unified::getEvent(sensors_event_t* event)
   event->sensor_id = _sensorID;
   event->type      = SENSOR_TYPE_GYROSCOPE;
 
+  gyro_event_t gyro_event;
+  bool result = getEvent(&gyro_event);
+  event->gyro.x = gyro_event.x;
+  event->gyro.y = gyro_event.y;
+  event->gyro.z = gyro_event.z;
+  event->timestamp = millis();
+
+  return result;
+}
+
+bool Adafruit_L3GD20_Unified::getEvent(gyro_event_t* event)
+{
+  bool readingValid = false;
   while(!readingValid)
   {
-    event->timestamp = millis();
-
     /* Read 6 bytes from the sensor */
     _i2c->beginTransmission((byte)L3GD20_ADDRESS);
+    // I think the 0x80 here is indicating this will be a read
     #if ARDUINO >= 100
-      _i2c->write(GYRO_REGISTER_OUT_X_L | 0x80);
+      _i2c->write(GYRO_REGISTER_OUT_TEMP | 0x80);
+      //_i2c->write(GYRO_REGISTER_OUT_X_L | 0x80);
     #else
-      _i2c->send(GYRO_REGISTER_OUT_X_L | 0x80);
+      _i2c->send(GYRO_REGISTER_OUT_TEMP | 0x80);
+      //_i2c->send(GYRO_REGISTER_OUT_X_L | 0x80);
     #endif
-    if (_i2c->endTransmission() != 0) {
-        // Error. Retry.
-        continue;
-    }
-
-    const byte bytesToRead = 6;
-    if (!_i2c->requestFrom((byte)L3GD20_ADDRESS, (byte)bytesToRead) == bytesToRead)
-    {
-        // Error.
+    uint8_t endTransmission = _i2c->endTransmission();
+    if (endTransmission != 0) {
+        Serial.print("ET:"); Serial.println(endTransmission);
         return false;
     }
 
+    const byte bytesToRead = 8;
+    if (!_i2c->requestFrom((byte)L3GD20_ADDRESS, (byte)bytesToRead) == bytesToRead)
+    {
+      Serial.println("RF:");
+      return false;
+    }
+
     #if ARDUINO >= 100
+      event->temp = _i2c->read();
+      event->status = _i2c->read();
       uint8_t xlo = _i2c->read();
       uint8_t xhi = _i2c->read();
       uint8_t ylo = _i2c->read();
@@ -326,6 +332,8 @@ bool Adafruit_L3GD20_Unified::getEvent(sensors_event_t* event)
       uint8_t zlo = _i2c->read();
       uint8_t zhi = _i2c->read();
     #else
+      event->temp = _i2c->receive();
+      event->status = _i2c->receive();
       uint8_t xlo = _i2c->receive();
       uint8_t xhi = _i2c->receive();
       uint8_t ylo = _i2c->receive();
@@ -333,11 +341,11 @@ bool Adafruit_L3GD20_Unified::getEvent(sensors_event_t* event)
       uint8_t zlo = _i2c->receive();
       uint8_t zhi = _i2c->receive();
     #endif
-
+  
     /* Shift values to create properly formed integer (low byte first) */
-    event->gyro.x = (int16_t)(xlo | (xhi << 8));
-    event->gyro.y = (int16_t)(ylo | (yhi << 8));
-    event->gyro.z = (int16_t)(zlo | (zhi << 8));
+    event->x = (int16_t)(xlo | (xhi << 8));
+    event->y = (int16_t)(ylo | (yhi << 8));
+    event->z = (int16_t)(zlo | (zhi << 8));
 
     /* Assign raw values in case someone needs them */
     raw.x = (int16_t)(xlo | (xhi << 8));
@@ -352,9 +360,9 @@ bool Adafruit_L3GD20_Unified::getEvent(sensors_event_t* event)
     else
     {
       /* Check if the sensor is saturating or not */
-      if ( (event->gyro.x >= 32760) | (event->gyro.x <= -32760) |
-           (event->gyro.y >= 32760) | (event->gyro.y <= -32760) |
-           (event->gyro.z >= 32760) | (event->gyro.z <= -32760) )
+      if ( (event->x >= 32760) | (event->x <= -32760) |
+           (event->y >= 32760) | (event->y <= -32760) |
+           (event->z >= 32760) | (event->z <= -32760) )
       {
         /* Saturating .... increase the range if we can */
         switch(_range)
@@ -362,20 +370,20 @@ bool Adafruit_L3GD20_Unified::getEvent(sensors_event_t* event)
           case GYRO_RANGE_500DPS:
             /* Push the range up to 2000dps */
             _range = GYRO_RANGE_2000DPS;
-            write8(GYRO_REGISTER_CTRL_REG1, 0x00);
-            write8(GYRO_REGISTER_CTRL_REG1, 0x0F);
-            write8(GYRO_REGISTER_CTRL_REG4, 0x20);
-            write8(GYRO_REGISTER_CTRL_REG5, 0x80);
+            write8(GYRO_REGISTER_CTRL_REG1, GYRO_CTRL1_Disabled);
+            write8(GYRO_REGISTER_CTRL_REG1, GYRO_CTRL1_3AxisEnabled);
+            write8(GYRO_REGISTER_CTRL_REG4, GYRO_CTRL4_FS_2000DPS);
+            write8(GYRO_REGISTER_CTRL_REG5, GYRO_CTRL5_BOOT);
             readingValid = false;
             // Serial.println("Changing range to 2000DPS");
             break;
           case GYRO_RANGE_250DPS:
             /* Push the range up to 500dps */
             _range = GYRO_RANGE_500DPS;
-            write8(GYRO_REGISTER_CTRL_REG1, 0x00);
-            write8(GYRO_REGISTER_CTRL_REG1, 0x0F);
-            write8(GYRO_REGISTER_CTRL_REG4, 0x10);
-            write8(GYRO_REGISTER_CTRL_REG5, 0x80);
+            write8(GYRO_REGISTER_CTRL_REG1, GYRO_CTRL1_Disabled);
+            write8(GYRO_REGISTER_CTRL_REG1, GYRO_CTRL1_3AxisEnabled);
+            write8(GYRO_REGISTER_CTRL_REG4, GYRO_CTRL4_FS_500DPS);
+            write8(GYRO_REGISTER_CTRL_REG5, GYRO_CTRL5_BOOT);
             readingValid = false;
             // Serial.println("Changing range to 500DPS");
             break;
@@ -396,26 +404,26 @@ bool Adafruit_L3GD20_Unified::getEvent(sensors_event_t* event)
   switch(_range)
   {
     case GYRO_RANGE_250DPS:
-      event->gyro.x *= GYRO_SENSITIVITY_250DPS;
-      event->gyro.y *= GYRO_SENSITIVITY_250DPS;
-      event->gyro.z *= GYRO_SENSITIVITY_250DPS;
+      event->x *= GYRO_SENSITIVITY_250DPS;
+      event->y *= GYRO_SENSITIVITY_250DPS;
+      event->z *= GYRO_SENSITIVITY_250DPS;
       break;
     case GYRO_RANGE_500DPS:
-      event->gyro.x *= GYRO_SENSITIVITY_500DPS;
-      event->gyro.y *= GYRO_SENSITIVITY_500DPS;
-      event->gyro.z *= GYRO_SENSITIVITY_500DPS;
+      event->x *= GYRO_SENSITIVITY_500DPS;
+      event->y *= GYRO_SENSITIVITY_500DPS;
+      event->z *= GYRO_SENSITIVITY_500DPS;
       break;
     case GYRO_RANGE_2000DPS:
-      event->gyro.x *= GYRO_SENSITIVITY_2000DPS;
-      event->gyro.y *= GYRO_SENSITIVITY_2000DPS;
-      event->gyro.z *= GYRO_SENSITIVITY_2000DPS;
+      event->x *= GYRO_SENSITIVITY_2000DPS;
+      event->y *= GYRO_SENSITIVITY_2000DPS;
+      event->z *= GYRO_SENSITIVITY_2000DPS;
       break;
   }
 
   /* Convert values to rad/s */
-  event->gyro.x *= SENSORS_DPS_TO_RADS;
-  event->gyro.y *= SENSORS_DPS_TO_RADS;
-  event->gyro.z *= SENSORS_DPS_TO_RADS;
+  event->x *= SENSORS_DPS_TO_RADS;
+  event->y *= SENSORS_DPS_TO_RADS;
+  event->z *= SENSORS_DPS_TO_RADS;
 
   return true;
 }
