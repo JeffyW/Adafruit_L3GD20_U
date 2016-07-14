@@ -310,7 +310,13 @@ bool Adafruit_L3GD20_Unified::getEvent(sensors_event_t* event)
         // Error. Retry.
         continue;
     }
-    _i2c->requestFrom((byte)L3GD20_ADDRESS, (byte)6);
+
+    const byte bytesToRead = 6;
+    if (!_i2c->requestFrom((byte)L3GD20_ADDRESS, (byte)bytesToRead) == bytesToRead)
+    {
+        // Error.
+        return false;
+    }
 
     #if ARDUINO >= 100
       uint8_t xlo = _i2c->read();
