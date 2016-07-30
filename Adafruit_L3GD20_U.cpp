@@ -56,6 +56,9 @@ byte Adafruit_L3GD20_Unified::read8(byte reg)
 {
   byte value;
 
+  #if ARDUINO >= 10607
+  _wire->requestFrom((byte)L3GD20_ADDRESS, 1, reg, 1, true);
+  #else
   _wire->beginTransmission((byte)L3GD20_ADDRESS);
   #if ARDUINO >= 100
     _wire->write((uint8_t)reg);
@@ -64,6 +67,7 @@ byte Adafruit_L3GD20_Unified::read8(byte reg)
   #endif
   _wire->endTransmission();
   _wire->requestFrom((byte)L3GD20_ADDRESS, (byte)1);
+  #endif
   while (!_wire->available()); // Wait for data to arrive.
   #if ARDUINO >= 100
     value = _wire->read();
@@ -270,6 +274,10 @@ bool Adafruit_L3GD20_Unified::getEvent(sensors_event_t* event)
     event->timestamp = millis();
   
     /* Read 6 bytes from the sensor */
+    const byte bytesToRead = 6;
+    #if ARDUINO >= 10607
+    if (_wire->requestFrom((byte)L3GD20_ADDRESS, bytesToRead, GYRO_REGISTER_OUT_X_L | 0x80, 1, true) != bytesToRead)
+    #else
     _wire->beginTransmission((byte)L3GD20_ADDRESS);
     #if ARDUINO >= 100
       _wire->write(GYRO_REGISTER_OUT_X_L | 0x80);
@@ -280,9 +288,8 @@ bool Adafruit_L3GD20_Unified::getEvent(sensors_event_t* event)
         // Error.
         return false;
     }
-
-    const byte bytesToRead = 6;
-    if (!_wire->requestFrom((byte)L3GD20_ADDRESS, (byte)bytesToRead) == bytesToRead)
+    if (_wire->requestFrom((byte)L3GD20_ADDRESS, (byte)bytesToRead) != bytesToRead)
+    #endif
     {
         // Error.
         return false;
