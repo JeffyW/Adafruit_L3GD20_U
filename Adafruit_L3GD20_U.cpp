@@ -14,12 +14,7 @@
   Written by Kevin "KTOWN" Townsend for Adafruit Industries.
   BSD license, all text above must be included in any redistribution
  ****************************************************/
-#if ARDUINO >= 100
 #include "Arduino.h"
-#else
-#include "WProgram.h"
-#endif
-
 #include <Wire.h>
 #include <limits.h>
 
@@ -50,9 +45,7 @@ void Adafruit_L3GD20_Unified::write8(uint8_t reg, uint8_t value)
 byte Adafruit_L3GD20_Unified::read8(uint8_t reg)
 {
 	_wire->requestFrom(L3GD20_ADDRESS, 1, reg, 1, true);
-	byte value = _wire->read();
-	_wire->endTransmission();
-	return value;
+	return _wire->read();
 }
 
 /***************************************************************************
@@ -225,7 +218,6 @@ void Adafruit_L3GD20_Unified::enableDRDYInterrupt(bool enabled)
 void Adafruit_L3GD20_Unified::setOutputDataRate(gyroDataRate odr)
 {
 	byte existing = read8(GYRO_REGISTER_CTRL_REG1);
-
 	write8(GYRO_REGISTER_CTRL_REG1, existing &= ~(3 << 6));
 	write8(GYRO_REGISTER_CTRL_REG1, existing |= odr << 6);
 }
