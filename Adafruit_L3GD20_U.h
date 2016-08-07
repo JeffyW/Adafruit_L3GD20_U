@@ -17,12 +17,7 @@
 #ifndef __L3GD20_H__
 #define __L3GD20_H__
 
-#if (ARDUINO >= 100)
 #include "Arduino.h"
-#else
-#include "WProgram.h"
-#endif
-
 #include <Adafruit_Sensor.h>
 #include <Wire.h>
 
@@ -95,7 +90,7 @@ typedef enum
 } gyroDataRate;
 /*=========================================================================*/
 
-class Adafruit_L3GD20_Unified : public Adafruit_Sensor
+class Adafruit_L3GD20_Unified
 {
 public:
 	Adafruit_L3GD20_Unified(TwoWire* wire, int32_t sensorID = -1);
@@ -106,11 +101,10 @@ public:
 	void enableDRDYInterrupt(bool enabled);
 	void setOutputDataRate(gyroDataRate odr);
 	bool getEvent(sensors_event_t*);
-	void getSensor(sensor_t*);
 
 private:
-	void        write8(byte reg, byte value);
-	byte        read8(byte reg);
+	void        write8(uint8_t reg, uint8_t value);
+	byte        read8(uint8_t reg);
 	TwoWire*    _wire;
 	gyroRange_t _range;
 	int32_t     _sensorID;

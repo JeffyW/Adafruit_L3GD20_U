@@ -34,16 +34,11 @@
 	  @brief  Abstract away platform differences in Arduino wire library
   */
   /**************************************************************************/
-void Adafruit_L3GD20_Unified::write8(byte reg, byte value)
+void Adafruit_L3GD20_Unified::write8(uint8_t reg, uint8_t value)
 {
 	_wire->beginTransmission(L3GD20_ADDRESS);
-#if ARDUINO >= 100
-	_wire->write((uint8_t)reg);
-	_wire->write((uint8_t)value);
-#else
-	_wire->send(reg);
-	_wire->send(value);
-#endif
+	_wire->write(reg);
+	_wire->write(value);
 	_wire->endTransmission();
 }
 
@@ -52,30 +47,11 @@ void Adafruit_L3GD20_Unified::write8(byte reg, byte value)
 	@brief  Abstract away platform differences in Arduino wire library
 */
 /**************************************************************************/
-byte Adafruit_L3GD20_Unified::read8(byte reg)
+byte Adafruit_L3GD20_Unified::read8(uint8_t reg)
 {
-	byte value;
-
-#if ARDUINO >= 10607
-	_wire->requestFrom((byte)L3GD20_ADDRESS, 1, reg, 1, true);
-#else
-	_wire->beginTransmission((byte)L3GD20_ADDRESS);
-#if ARDUINO >= 100
-	_wire->write((uint8_t)reg);
-#else
-	_wire->send(reg);
-#endif
+	_wire->requestFrom(L3GD20_ADDRESS, 1, reg, 1, true);
+	byte value = _wire->read();
 	_wire->endTransmission();
-	_wire->requestFrom((byte)L3GD20_ADDRESS, (byte)1);
-#endif
-	while (!_wire->available()); // Wait for data to arrive.
-#if ARDUINO >= 100
-	value = _wire->read();
-#else
-	value = _wire->receive();
-#endif  
-	_wire->endTransmission();
-
 	return value;
 }
 
@@ -276,41 +252,18 @@ bool Adafruit_L3GD20_Unified::getEvent(sensors_event_t* event)
 
 		/* Read 6 bytes from the sensor */
 		const byte bytesToRead = 6;
-#if ARDUINO >= 10607
-		if (_wire->requestFrom((byte)L3GD20_ADDRESS, bytesToRead, GYRO_REGISTER_OUT_X_L | 0x80, 1, true) != bytesToRead)
-#else
-		_wire->beginTransmission((byte)L3GD20_ADDRESS);
-#if ARDUINO >= 100
-		_wire->write(GYRO_REGISTER_OUT_X_L | 0x80);
-#else
-		_wire->send(GYRO_REGISTER_OUT_X_L | 0x80);
-#endif
-		if (_wire->endTransmission() != 0) {
-			// Error.
-			return false;
-		}
-		if (_wire->requestFrom((byte)L3GD20_ADDRESS, (byte)bytesToRead) != bytesToRead)
-#endif
+		if (_wire->requestFrom(L3GD20_ADDRESS, bytesToRead, GYRO_REGISTER_OUT_X_L | 0x80, 1, true) != bytesToRead)
 		{
 			// Error.
 			return false;
 		}
 
-#if ARDUINO >= 100
 		uint8_t xlo = _wire->read();
 		uint8_t xhi = _wire->read();
 		uint8_t ylo = _wire->read();
 		uint8_t yhi = _wire->read();
 		uint8_t zlo = _wire->read();
 		uint8_t zhi = _wire->read();
-#else
-		uint8_t xlo = _wire->receive();
-		uint8_t xhi = _wire->receive();
-		uint8_t ylo = _wire->receive();
-		uint8_t yhi = _wire->receive();
-		uint8_t zlo = _wire->receive();
-		uint8_t zhi = _wire->receive();
-#endif    
 
 		/* Shift values to create properly formed integer (low byte first) */
 		event->gyro.x = (int16_t)(xlo | (xhi << 8));
@@ -391,26 +344,4 @@ bool Adafruit_L3GD20_Unified::getEvent(sensors_event_t* event)
 	event->gyro.z *= SENSORS_DPS_TO_RADS;
 
 	return true;
-}
-
-/**************************************************************************/
-/*!
-	@brief  Gets the sensor_t data
-*/
-/**************************************************************************/
-void  Adafruit_L3GD20_Unified::getSensor(sensor_t* sensor)
-{
-	/* Clear the sensor_t object */
-	memset(sensor, 0, sizeof(sensor_t));
-
-	/* Insert the sensor name in the fixed length char array */
-	strncpy(sensor->name, "L3GD20", sizeof(sensor->name) - 1);
-	sensor->name[sizeof(sensor->name) - 1] = 0;
-	sensor->version = 1;
-	sensor->sensor_id = _sensorID;
-	sensor->type = SENSOR_TYPE_GYROSCOPE;
-	sensor->min_delay = 0;
-	sensor->max_value = (float)this->_range * SENSORS_DPS_TO_RADS;
-	sensor->min_value = (this->_range * -1.0) * SENSORS_DPS_TO_RADS;
-	sensor->resolution = 0.0F; // TBD
 }
