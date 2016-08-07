@@ -17,9 +17,8 @@
 #ifndef __L3GD20_H__
 #define __L3GD20_H__
 
-#include "Arduino.h"
 #include <Adafruit_Sensor.h>
-#include <Wire.h>
+#include <I2C-Master-Library/I2C.h>
 
  /*=========================================================================
 	 I2C ADDRESS/BITS AND SETTINGS
@@ -93,13 +92,13 @@ typedef enum
 class Adafruit_L3GD20_Unified
 {
 public:
-	Adafruit_L3GD20_Unified(TwoWire* wire, int32_t sensorID = -1) :
+	Adafruit_L3GD20_Unified(I2C* wire, int32_t sensorID = -1) :
 		_wire(wire),
 		_range(),
 		_sensorID(sensorID),
 		_autoRangeEnabled(false) {}
 	Adafruit_L3GD20_Unified(int32_t sensorID = -1) :
-		Adafruit_L3GD20_Unified(&Wire, sensorID) {}
+		Adafruit_L3GD20_Unified(&I2c, sensorID) {}
 
 	bool begin(gyroRange_t rng = GYRO_RANGE_250DPS);
 	void enableAutoRange(bool enabled);
@@ -108,9 +107,9 @@ public:
 	bool getGyro(sensors_vec_t* gyro);
 
 private:
-	bool        write8(uint8_t reg, uint8_t value);
-	bool        read8(uint8_t reg, uint8_t *value);
-	TwoWire*    _wire;
+	uint8_t     write8(uint8_t reg, uint8_t value);
+	uint8_t     read8(uint8_t reg, uint8_t *value);
+	I2C*        _wire;
 	gyroRange_t _range;
 	int32_t     _sensorID;
 	bool        _autoRangeEnabled;

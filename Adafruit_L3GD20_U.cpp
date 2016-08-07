@@ -29,12 +29,9 @@
 	  @brief  Abstract away platform differences in Arduino wire library
   */
   /**************************************************************************/
-bool Adafruit_L3GD20_Unified::write8(uint8_t reg, uint8_t value)
+uint8_t Adafruit_L3GD20_Unified::write8(uint8_t reg, uint8_t value)
 {
-	_wire->beginTransmission(L3GD20_ADDRESS);
-	_wire->write(reg);
-	_wire->write(value);
-	return _wire->endTransmission() == 0;
+	return _wire->write(L3GD20_ADDRESS, reg, value);
 }
 
 /**************************************************************************/
@@ -42,14 +39,15 @@ bool Adafruit_L3GD20_Unified::write8(uint8_t reg, uint8_t value)
 	@brief  Abstract away platform differences in Arduino wire library
 */
 /**************************************************************************/
-bool Adafruit_L3GD20_Unified::read8(uint8_t reg, uint8_t *value)
+uint8_t Adafruit_L3GD20_Unified::read8(uint8_t reg, uint8_t *value)
 {
-	if (!_wire->requestFrom(L3GD20_ADDRESS, 1, reg, 1, true))
+	uint8_t returnStatus = _wire->read(L3GD20_ADDRESS, reg, 1);
+	if (returnStatus)
 	{
-		return false;
+		return returnStatus;
 	}
-	*value = _wire->read();
-	return true;
+	*value = _wire->receive();
+	return 0;
 }
 
 /***************************************************************************
@@ -72,7 +70,7 @@ bool Adafruit_L3GD20_Unified::begin(gyroRange_t rng)
 	/* Make sure we have the correct chip ID since this checks
 	   for correct address and that the IC is properly connected */
 	uint8_t id;
-	if (!read8(GYRO_REGISTER_WHO_AM_I, &id) || ((id != L3GD20_ID) && (id != L3GD20H_ID)))
+	if (read8(GYRO_REGISTER_WHO_AM_I, &id) || ((id != L3GD20_ID) && (id != L3GD20H_ID)))
 	{
 		return false;
 	}
@@ -181,7 +179,7 @@ void Adafruit_L3GD20_Unified::enableAutoRange(bool enabled)
 bool Adafruit_L3GD20_Unified::enableDRDYInterrupt(bool enabled)
 {
 	uint8_t existing;
-	if (!read8(GYRO_REGISTER_CTRL_REG3, &existing))
+	if (read8(GYRO_REGISTER_CTRL_REG3, &existing))
 	{
 		return false;
 	}
@@ -225,19 +223,19 @@ bool Adafruit_L3GD20_Unified::getGyro(sensors_vec_t* gyro)
 	while (!readingValid)
 	{
 		/* Read 6 bytes from the sensor */
-		const byte bytesToRead = 6;
-		if (_wire->requestFrom(L3GD20_ADDRESS, bytesToRead, GYRO_REGISTER_OUT_X_L | 0x80, 1, true) != bytesToRead)
+		const uint8_t bytesToRead = 6;
+		if (_wire->read(L3GD20_ADDRESS, GYRO_REGISTER_OUT_X_L | 0x80, bytesToRead))
 		{
 			// Error.
 			return false;
 		}
 
-		uint8_t xlo = _wire->read();
-		uint8_t xhi = _wire->read();
-		uint8_t ylo = _wire->read();
-		uint8_t yhi = _wire->read();
-		uint8_t zlo = _wire->read();
-		uint8_t zhi = _wire->read();
+		uint8_t xlo = _wire->receive();
+		uint8_t xhi = _wire->receive();
+		uint8_t ylo = _wire->receive();
+		uint8_t yhi = _wire->receive();
+		uint8_t zlo = _wire->receive();
+		uint8_t zhi = _wire->receive();
 
 		/* Shift values to create properly formed integer (low byte first) */
 		gyro->x = (int16_t)(xlo | (xhi << 8));
