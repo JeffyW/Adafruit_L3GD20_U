@@ -93,18 +93,23 @@ typedef enum
 class Adafruit_L3GD20_Unified
 {
 public:
-	Adafruit_L3GD20_Unified(TwoWire* wire, int32_t sensorID = -1);
-	Adafruit_L3GD20_Unified(int32_t sensorID = -1);
+	Adafruit_L3GD20_Unified(TwoWire* wire, int32_t sensorID = -1) :
+		_wire(wire),
+		_range(),
+		_sensorID(sensorID),
+		_autoRangeEnabled(false) {}
+	Adafruit_L3GD20_Unified(int32_t sensorID = -1) :
+		Adafruit_L3GD20_Unified(&Wire, sensorID) {}
 
 	bool begin(gyroRange_t rng = GYRO_RANGE_250DPS);
 	void enableAutoRange(bool enabled);
-	void enableDRDYInterrupt(bool enabled);
+	bool enableDRDYInterrupt(bool enabled);
 	void setOutputDataRate(gyroDataRate odr);
-	bool getEvent(sensors_event_t*);
+	bool getGyro(sensors_vec_t* gyro);
 
 private:
-	void        write8(uint8_t reg, uint8_t value);
-	byte        read8(uint8_t reg);
+	bool        write8(uint8_t reg, uint8_t value);
+	bool        read8(uint8_t reg, uint8_t *value);
 	TwoWire*    _wire;
 	gyroRange_t _range;
 	int32_t     _sensorID;
