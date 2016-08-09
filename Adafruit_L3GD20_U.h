@@ -107,8 +107,6 @@ public:
 	bool getGyro(sensors_vec_t* gyro);
 
 private:
-	uint8_t     write8(uint8_t reg, uint8_t value);
-	uint8_t     read8(uint8_t reg, uint8_t *value);
 	I2C*        _wire;
 	gyroRange_t _range;
 	int32_t     _sensorID;

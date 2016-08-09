@@ -15,40 +15,14 @@
   BSD license, all text above must be included in any redistribution
  ****************************************************/
 #include "Arduino.h"
-#include <Wire.h>
-#include <limits.h>
-
 #include "Adafruit_L3GD20_U.h"
 
  /***************************************************************************
   PRIVATE FUNCTIONS
   ***************************************************************************/
 
-  /**************************************************************************/
-  /*!
-	  @brief  Abstract away platform differences in Arduino wire library
-  */
-  /**************************************************************************/
-uint8_t Adafruit_L3GD20_Unified::write8(uint8_t reg, uint8_t value)
-{
-	return _wire->write(L3GD20_ADDRESS, reg, value);
-}
-
-/**************************************************************************/
-/*!
-	@brief  Abstract away platform differences in Arduino wire library
-*/
-/**************************************************************************/
-uint8_t Adafruit_L3GD20_Unified::read8(uint8_t reg, uint8_t *value)
-{
-	uint8_t returnStatus = _wire->read(L3GD20_ADDRESS, reg, 1);
-	if (returnStatus)
-	{
-		return returnStatus;
-	}
-	*value = _wire->receive();
-	return 0;
-}
+#define write(reg, value) _wire->write(L3GD20_ADDRESS, reg, (uint8_t)value)
+#define read8(reg, value) _wire->read(L3GD20_ADDRESS, reg, 1, value)
 
 /***************************************************************************
  PUBLIC FUNCTIONS
@@ -87,8 +61,8 @@ bool Adafruit_L3GD20_Unified::begin(gyroRange_t rng)
 	   0  XEN       X-axis enable (0 = disabled, 1 = enabled)           1 */
 
 	   /* Reset then switch to normal mode and enable all three channels */
-	write8(GYRO_REGISTER_CTRL_REG1, 0x00);
-	write8(GYRO_REGISTER_CTRL_REG1, 0x0F);
+	write(GYRO_REGISTER_CTRL_REG1, 0x00);
+	write(GYRO_REGISTER_CTRL_REG1, 0x0F);
 	/* ------------------------------------------------------------------ */
 
 	/* Set CTRL_REG2 (0x21)
@@ -134,13 +108,13 @@ bool Adafruit_L3GD20_Unified::begin(gyroRange_t rng)
 	switch (_range)
 	{
 	case GYRO_RANGE_250DPS:
-		write8(GYRO_REGISTER_CTRL_REG4, 0x00);
+		write(GYRO_REGISTER_CTRL_REG4, 0x00);
 		break;
 	case GYRO_RANGE_500DPS:
-		write8(GYRO_REGISTER_CTRL_REG4, 0x10);
+		write(GYRO_REGISTER_CTRL_REG4, 0x10);
 		break;
 	case GYRO_RANGE_2000DPS:
-		write8(GYRO_REGISTER_CTRL_REG4, 0x20);
+		write(GYRO_REGISTER_CTRL_REG4, 0x20);
 		break;
 	}
 	/* ------------------------------------------------------------------ */
@@ -186,11 +160,11 @@ bool Adafruit_L3GD20_Unified::enableDRDYInterrupt(bool enabled)
 
 	if (enabled)
 	{
-		write8(GYRO_REGISTER_CTRL_REG3, existing |= 1 << 3);
+		write(GYRO_REGISTER_CTRL_REG3, (existing |= 1 << 3));
 	}
 	else
 	{
-		write8(GYRO_REGISTER_CTRL_REG3, existing &= ~(1 << 3));
+		write(GYRO_REGISTER_CTRL_REG3, (existing &= ~(1 << 3)));
 	}
 	return true;
 }
@@ -204,8 +178,8 @@ void Adafruit_L3GD20_Unified::setOutputDataRate(gyroDataRate odr)
 {
 	byte existing;
 	read8(GYRO_REGISTER_CTRL_REG1, &existing);
-	write8(GYRO_REGISTER_CTRL_REG1, existing &= ~(3 << 6));
-	write8(GYRO_REGISTER_CTRL_REG1, existing |= odr << 6);
+	write(GYRO_REGISTER_CTRL_REG1, (existing &= ~(3 << 6)));
+	write(GYRO_REGISTER_CTRL_REG1, (existing |= odr << 6));
 }
 
 /**************************************************************************/
@@ -257,19 +231,19 @@ bool Adafruit_L3GD20_Unified::getGyro(sensors_vec_t* gyro)
 					case GYRO_RANGE_500DPS:
 						/* Push the range up to 2000dps */
 						_range = GYRO_RANGE_2000DPS;
-						write8(GYRO_REGISTER_CTRL_REG1, 0x00);
-						write8(GYRO_REGISTER_CTRL_REG1, 0x0F);
-						write8(GYRO_REGISTER_CTRL_REG4, 0x20);
-						write8(GYRO_REGISTER_CTRL_REG5, 0x80);
+						write(GYRO_REGISTER_CTRL_REG1, 0x00);
+						write(GYRO_REGISTER_CTRL_REG1, 0x0F);
+						write(GYRO_REGISTER_CTRL_REG4, 0x20);
+						write(GYRO_REGISTER_CTRL_REG5, 0x80);
 						readingValid = false;
 						break;
 					case GYRO_RANGE_250DPS:
 						/* Push the range up to 500dps */
 						_range = GYRO_RANGE_500DPS;
-						write8(GYRO_REGISTER_CTRL_REG1, 0x00);
-						write8(GYRO_REGISTER_CTRL_REG1, 0x0F);
-						write8(GYRO_REGISTER_CTRL_REG4, 0x10);
-						write8(GYRO_REGISTER_CTRL_REG5, 0x80);
+						write(GYRO_REGISTER_CTRL_REG1, 0x00);
+						write(GYRO_REGISTER_CTRL_REG1, 0x0F);
+						write(GYRO_REGISTER_CTRL_REG4, 0x10);
+						write(GYRO_REGISTER_CTRL_REG5, 0x80);
 						readingValid = false;
 						break;
 					default:
